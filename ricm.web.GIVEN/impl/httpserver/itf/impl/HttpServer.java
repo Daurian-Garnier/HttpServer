@@ -105,11 +105,13 @@ public class HttpServer {
 	public static void main(String[] args) {
 		int port = 0;
 		if (args.length != 2) {
-			System.out.println("Usage: java Server <port-number> <file folder>");
+			//System.out.println("Usage: java Server <port-number> <file folder>");
+			HttpServer hs = new HttpServer(8080, ".");
+			hs.loop();
 		} else {
 			port = Integer.parseInt(args[0]);
-			String foldername = args[1];
-			HttpServer hs = new HttpServer(port, foldername);
+			String folderName = args[1];
+			HttpServer hs = new HttpServer(port, folderName);
 			hs.loop();
 		}
 	}
