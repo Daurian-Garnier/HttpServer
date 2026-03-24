@@ -103,10 +103,10 @@ public class HttpServer {
 	
 	
 	public static void main(String[] args) {
-		int port = 0;
+		int port = 8080;
 		if (args.length != 2) {
 			//System.out.println("Usage: java Server <port-number> <file folder>");
-			HttpServer hs = new HttpServer(8080, ".");
+			HttpServer hs = new HttpServer(port, System.getProperty("user.dir")+File.separator+"ricm.web.GIVEN"+File.separator+"FILES");
 			hs.loop();
 		} else {
 			port = Integer.parseInt(args[0]);

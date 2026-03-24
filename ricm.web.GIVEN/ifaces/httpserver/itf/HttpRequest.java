@@ -11,12 +11,12 @@ public abstract class HttpRequest {
 
 	protected HttpServer m_hs; 
 	protected String m_method;
-	protected String m_ressname;
+	protected String m_resourceName;
 
-	public HttpRequest(HttpServer hs, String method, String ressname) throws IOException {
+	public HttpRequest(HttpServer hs, String method, String resourceName) throws IOException {
 		m_hs = hs;
 		m_method = method;
-		m_ressname = ressname;
+		m_resourceName = resourceName;
 	}
 
 	/*
@@ -30,7 +30,7 @@ public abstract class HttpRequest {
 	 * Return the resource name (URL) associated to the current request
 	 */
 	public String getRessname() {
-		return m_ressname;
+		return m_resourceName;
 	}
 
 	/*
