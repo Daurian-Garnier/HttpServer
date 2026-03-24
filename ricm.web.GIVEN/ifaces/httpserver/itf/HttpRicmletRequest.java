@@ -7,7 +7,7 @@ import httpserver.itf.impl.HttpServer;
 
 /*
  * Interface provided by an object representing a dynamic HTTP request 
- * A dynamic HTTP request involves an ricmlet
+ * A dynamic HTTP request involves a ricmlet
  */
 public abstract class HttpRicmletRequest extends HttpRequest {
 	

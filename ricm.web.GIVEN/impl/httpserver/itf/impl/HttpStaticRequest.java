@@ -12,6 +12,7 @@ import httpserver.itf.HttpResponse;
 public class HttpStaticRequest extends HttpRequest {
 	static final String DEFAULT_FILE = "index.html";
 	static final Integer CHUNK_LENGTH = 1024;
+	static final String FILES_FOLDER = "FILES";
 	
 	public HttpStaticRequest(HttpServer hs, String method, String resourceName) throws IOException {
 		super(hs, method, resourceName);
@@ -22,8 +23,9 @@ public class HttpStaticRequest extends HttpRequest {
 				? DEFAULT_FILE
 				: m_resourceName.replace("/", File.separator);
 		try {
-			File file = new File(m_hs.getFolder(), resource);
-			System.out.println("Requested: "+m_hs.getFolder()+File.separator+resource);
+			File base = new File(m_hs.getFolder(), FILES_FOLDER);
+			File file = new File(base, resource);
+			System.out.println("Requested: "+m_hs.getFolder()+File.separator+FILES_FOLDER+resource);
 			BufferedInputStream data = new BufferedInputStream(new FileInputStream(file));
 			int length = (int) file.length();
 
