@@ -8,6 +8,7 @@ import java.lang.reflect.InvocationTargetException;
 import java.net.MalformedURLException;
 import java.net.ServerSocket;
 import java.net.Socket;
+import java.util.LinkedList;
 import java.util.StringTokenizer;
 
 import httpserver.itf.HttpRequest;
@@ -65,16 +66,16 @@ public class HttpServer {
         HttpRequest request = null;
 
         String startline = br.readLine();
-        StringTokenizer parseline = new StringTokenizer(startline);
-        String method = parseline.nextToken().toUpperCase();
-        String ressname = parseline.nextToken();
+        StringTokenizer parseLine = new StringTokenizer(startline);
+        String method = parseLine.nextToken().toUpperCase();
+        String resourceName = parseLine.nextToken();
         if (method.equals("GET")) {
-            if (ressname.startsWith("/ricmlets")){
-                request = new HttpRicmletRequestImpl(this, method, ressname, br);
+            if (resourceName.startsWith("/ricmlets")){
+                request = new HttpRicmletRequestImpl(this, method, resourceName, br);
             } else {
-            request = new HttpStaticRequest(this, method, ressname);}
+            request = new HttpStaticRequest(this, method, resourceName);}
         } else
-            request = new UnknownRequest(this, method, ressname);
+            request = new UnknownRequest(this, method, resourceName);
         return request;
     }
 

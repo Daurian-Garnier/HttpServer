@@ -6,6 +6,8 @@ import httpserver.itf.HttpRicmletResponse;
 import java.io.IOException;
 import java.io.PrintStream;
 import java.util.Date;
+import java.util.LinkedList;
+import java.util.List;
 
 public class HttpRicmletResponseImpl implements HttpRicmletResponse {
     protected PrintStream m_ps;
@@ -14,27 +16,46 @@ public class HttpRicmletResponseImpl implements HttpRicmletResponse {
         m_ps = ps;
     }
 
+    private static class Cookie{
+
+        private final String name;
+        private final String value;
+
+        Cookie(String name, String value){
+            this.name = name;
+            this.value = value;
+        }
+
+    }
+
+    private final List<Cookie> cookies = new LinkedList<>();
+
+
     @Override
     public void setCookie(String name, String value) {
-        // Nothing yet to do
+        cookies.add(new Cookie(name, value));
     }
 
     @Override
     public void setReplyOk() throws IOException {
         m_ps.println("HTTP/1.0 200 OK");
         m_ps.println("Date: " + new Date());
-        m_ps.println("Server: ricm-http 1.0");
+        m_ps.print("Server: ricm-http 1.0\r\n");
+        for (Cookie cookie : cookies){
+            m_ps.print("Set-Cookie: " + cookie.name + "=" + cookie.value + "\r\n");
+            System.out.print("Set-Cookie: " + cookie.name + "=" + cookie.value + "\r\n");
+        }
     }
 
     @Override
     public void setReplyError(int codeRet, String msg) throws IOException {
-        m_ps.println("HTTP/1.0 "+codeRet+" "+msg);
+        m_ps.println("HTTP/1.0 " + codeRet + " " + msg);
         m_ps.println("Date: " + new Date());
         m_ps.println("Server: ricm-http 1.0");
         m_ps.println("Content-type: text/html");
         m_ps.println();
-        m_ps.println("<HTML><HEAD><TITLE>"+msg+"</TITLE></HEAD>");
-        m_ps.println("<BODY><H4>HTTP Error "+codeRet+": "+msg+"</H4></BODY></HTML>");
+        m_ps.println("<HTML><HEAD><TITLE>" + msg + "</TITLE></HEAD>");
+        m_ps.println("<BODY><H4>HTTP Error " + codeRet + ": " + msg + "</H4></BODY></HTML>");
         m_ps.flush();
     }
 
@@ -44,7 +65,8 @@ public class HttpRicmletResponseImpl implements HttpRicmletResponse {
     }
 
     @Override
-    public void setContentType(String type) throws IOException {m_ps.println("Content-type: " + type);
+    public void setContentType(String type) throws IOException {
+        m_ps.println("Content-type: " + type);
     }
 
 

@@ -10,11 +10,30 @@ public class HttpRicmletRequestImpl extends HttpRicmletRequest {
 
     // keep the already launched ricmlets
     static HashMap<String, HttpRicmlet> cacheRicmlet = new HashMap<>();
-    private HashMap<String, String> arguments = new HashMap<>();
-    private BufferedReader m_br;
+    private final HashMap<String, String> arguments = new HashMap<>();
+    static HashMap<String, String> cookies = new HashMap<>();
+    private BufferedReader br;
 
     public HttpRicmletRequestImpl(HttpServer hs, String method, String resourceName, BufferedReader br) throws IOException {
         super(hs, method, resourceName, br);
+        //parsing arguments
+        String line;
+        while ((line = br.readLine()) != null && !line.isEmpty()) {
+            if (line.startsWith("Cookie:")) {
+                System.out.println(line);
+                String cookieStr = line.substring("Cookie: ".length());
+
+                String[] pairs = cookieStr.split(";");
+
+                for (String pair : pairs) {
+                    String[] kv = pair.trim().split("=", 2);
+                    if (kv.length == 2) {
+                        cookies.put(kv[0], kv[1]);
+                    }
+                }
+            }
+        }
+        System.out.println(cookies);
     }
 
     @Override
@@ -30,8 +49,7 @@ public class HttpRicmletRequestImpl extends HttpRicmletRequest {
 
     @Override
     public String getCookie(String name) {
-        //nothing yet to do
-        return "";
+        return cookies.getOrDefault(name, null);
     }
 
     @Override
@@ -39,7 +57,7 @@ public class HttpRicmletRequestImpl extends HttpRicmletRequest {
         HttpRicmletResponse ricmletResp = (HttpRicmletResponse) resp;
         //separate classPart and arguments
         String classPart = m_resourceName;
-        if (m_resourceName.contains("?")){
+        if (m_resourceName.contains("?")) {
             int separation = m_resourceName.indexOf("?");
             classPart = m_resourceName.substring(0, separation);
             String query = m_resourceName.substring(separation + 1);
@@ -63,9 +81,6 @@ public class HttpRicmletRequestImpl extends HttpRicmletRequest {
             ricmlet = (HttpRicmlet) c.getDeclaredConstructor().newInstance();
             cacheRicmlet.put(className, ricmlet);
         }
-        ricmletResp.setReplyOk();
-        ricmletResp.setContentType("text/html");
-        ricmletResp.beginBody();
         // the ricmlet will now recover its args and directly send the answer to the HttpRicmletResponse
         ricmlet.doGet(this, ricmletResp);
     }
