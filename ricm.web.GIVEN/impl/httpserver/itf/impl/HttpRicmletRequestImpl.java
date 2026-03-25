@@ -9,10 +9,12 @@ import java.util.HashMap;
 public class HttpRicmletRequestImpl extends HttpRicmletRequest {
 
     // keep the already launched ricmlets
-    static HashMap<String, HttpRicmlet> cacheRicmlet = new HashMap<>();
+    static HashMap<String, HttpRicmlet> ricmlets = new HashMap<>();
+    static HashMap<String, HttpSession> sessions = new HashMap<>();
     private final HashMap<String, String> arguments = new HashMap<>();
     static HashMap<String, String> cookies = new HashMap<>();
     private BufferedReader br;
+    private HttpSession my_session;
 
     public HttpRicmletRequestImpl(HttpServer hs, String method, String resourceName, BufferedReader br) throws IOException {
         super(hs, method, resourceName, br);
@@ -20,26 +22,41 @@ public class HttpRicmletRequestImpl extends HttpRicmletRequest {
         String line;
         while ((line = br.readLine()) != null && !line.isEmpty()) {
             if (line.startsWith("Cookie:")) {
-                System.out.println(line);
-                String cookieStr = line.substring("Cookie: ".length());
-
-                String[] pairs = cookieStr.split(";");
-
-                for (String pair : pairs) {
-                    String[] kv = pair.trim().split("=", 2);
-                    if (kv.length == 2) {
-                        cookies.put(kv[0], kv[1]);
-                    }
-                }
+                readCookie(line);
             }
+        }
+        if (my_session == null) {
+            HttpSession newSession = new Session();
+            sessions.put(newSession.getId(), newSession);
+            my_session = newSession;
         }
         System.out.println(cookies);
     }
 
+    private void readCookie(String line) {
+        //System.out.println(line);
+        String cookieStr = line.substring("Cookie: ".length());
+
+        String[] pairs = cookieStr.split(";");
+
+        for (String pair : pairs) {
+            String[] kv = pair.trim().split("=", 2);
+            if (kv.length == 2) {
+                // handling session
+                if (kv[0].equals("SessionID")) {
+                    String sessionID = kv[1];
+                    if (sessions.containsKey(sessionID)) {
+                        my_session = sessions.get(sessionID);
+                    }
+                }
+                cookies.put(kv[0], kv[1]);
+            }
+        }
+    }
+
     @Override
     public HttpSession getSession() {
-        //nothing yet to do
-        return null;
+        return my_session;
     }
 
     @Override
@@ -74,14 +91,15 @@ public class HttpRicmletRequestImpl extends HttpRicmletRequest {
                 .replaceFirst("/ricmlets/", "")
                 .replace("/", ".");
         HttpRicmlet ricmlet;
-        if (cacheRicmlet.containsKey(className)) {
-            ricmlet = cacheRicmlet.get(className);
+        if (ricmlets.containsKey(className)) {
+            ricmlet = ricmlets.get(className);
         } else {
             Class<?> c = Class.forName(className);
             ricmlet = (HttpRicmlet) c.getDeclaredConstructor().newInstance();
-            cacheRicmlet.put(className, ricmlet);
+            ricmlets.put(className, ricmlet);
         }
         // the ricmlet will now recover its args and directly send the answer to the HttpRicmletResponse
+        ricmletResp.setCookie("SessionID", my_session.getId());
         ricmlet.doGet(this, ricmletResp);
     }
 
