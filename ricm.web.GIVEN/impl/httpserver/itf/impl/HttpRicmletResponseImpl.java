@@ -43,7 +43,7 @@ public class HttpRicmletResponseImpl implements HttpRicmletResponse {
         m_ps.print("Server: ricm-http 1.0\r\n");
         for (Cookie cookie : cookies){
             m_ps.print("Set-Cookie: " + cookie.name + "=" + cookie.value + "\r\n");
-            System.out.print("Set-Cookie: " + cookie.name + "=" + cookie.value + "\r\n");
+            //System.out.print("Set-Cookie: " + cookie.name + "=" + cookie.value + "\r\n");
         }
     }
 

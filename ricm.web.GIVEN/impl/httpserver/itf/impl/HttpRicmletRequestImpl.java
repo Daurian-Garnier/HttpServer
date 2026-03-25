@@ -8,9 +8,11 @@ import java.util.HashMap;
 
 public class HttpRicmletRequestImpl extends HttpRicmletRequest {
 
+    private static final Long SESSION_LIFETIME = 5000L;
     // keep the already launched ricmlets
     static HashMap<String, HttpRicmlet> ricmlets = new HashMap<>();
     static HashMap<String, HttpSession> sessions = new HashMap<>();
+    static HashMap<String, Long> lastSessionCalls = new HashMap<>();
     private final HashMap<String, String> arguments = new HashMap<>();
     static HashMap<String, String> cookies = new HashMap<>();
     private BufferedReader br;
@@ -30,7 +32,7 @@ public class HttpRicmletRequestImpl extends HttpRicmletRequest {
             sessions.put(newSession.getId(), newSession);
             my_session = newSession;
         }
-        System.out.println(cookies);
+        lastSessionCalls.put(my_session.getId(), System.currentTimeMillis());
     }
 
     private void readCookie(String line) {
@@ -45,7 +47,7 @@ public class HttpRicmletRequestImpl extends HttpRicmletRequest {
                 // handling session
                 if (kv[0].equals("SessionID")) {
                     String sessionID = kv[1];
-                    if (sessions.containsKey(sessionID)) {
+                    if (sessions.containsKey(sessionID) && System.currentTimeMillis()-lastSessionCalls.get(sessionID) < SESSION_LIFETIME) {
                         my_session = sessions.get(sessionID);
                     }
                 }
