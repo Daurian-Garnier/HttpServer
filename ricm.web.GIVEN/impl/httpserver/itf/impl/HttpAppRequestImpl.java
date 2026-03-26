@@ -1,23 +1,24 @@
 package httpserver.itf.impl;
 
 import httpserver.itf.*;
-
 import java.io.BufferedReader;
 import java.io.IOException;
+import java.util.Arrays;
 import java.util.HashMap;
 
-public class HttpRicmletRequestImpl extends HttpRicmletRequest {
+public class HttpAppRequestImpl extends HttpRicmletRequest{
 
-    private static final Long SESSION_LIFETIME = 5000L;
-    // keep the already launched ricmlets
-    static HashMap<String, HttpRicmlet> ricmlets = new HashMap<>();
-    static HashMap<String, HttpSession> sessions = new HashMap<>();
-    static HashMap<String, Long> lastSessionCalls = new HashMap<>();
-    final HashMap<String, String> arguments = new HashMap<>();
+    private static final long SESSION_LIFETIME = 5000L;
+    private static final Application application = new Application();
+
+    private static final HashMap<String, HttpSession> sessions = new HashMap<>();
+    private static final HashMap<String, Long> lastSessionCalls = new HashMap<>();
+
+    private final HashMap<String, String> arguments = new HashMap<>();
     private final HashMap<String, String> cookies = new HashMap<>();
     private HttpSession my_session;
 
-    public HttpRicmletRequestImpl(HttpServer hs, String method, String resourceName, BufferedReader br) throws IOException {
+    public HttpAppRequestImpl(HttpServer hs, String method, String resourceName, BufferedReader br) throws IOException {
         super(hs, method, resourceName, br);
         //parsing arguments
         String line;
@@ -75,6 +76,7 @@ public class HttpRicmletRequestImpl extends HttpRicmletRequest {
         return cookies.getOrDefault(name, null);
     }
 
+
     @Override
     public void process(HttpResponse resp) throws Exception {
         HttpRicmletResponse ricmletResp = (HttpRicmletResponse) resp;
@@ -93,20 +95,16 @@ public class HttpRicmletRequestImpl extends HttpRicmletRequest {
                 }
             }
         }
-        String className = classPart
-                .replaceFirst("/ricmlets/", "")
-                .replace("/", ".");
-        HttpRicmlet ricmlet;
-        if (ricmlets.containsKey(className)) {
-            ricmlet = ricmlets.get(className);
-        } else {
-            Class<?> c = Class.forName(className);
-            ricmlet = (HttpRicmlet) c.getDeclaredConstructor().newInstance();
-            ricmlets.put(className, ricmlet);
-        }
+        // ====== Change here : we now only use Application ======
+        String[] parts = classPart.split("/");
+        String appName = parts[2];
+        String className = String.join(".", Arrays.copyOfRange(parts, 3, parts.length));
+        // The application ensure the ricmlet's unicity
+        HttpRicmlet ricmlet = application.getInstance(className, appName, ClassLoader.getSystemClassLoader());
         // the ricmlet will now recover its args and directly send the answer to the HttpRicmletResponse
         ricmletResp.setCookie("SessionID", my_session.getId());
         ricmlet.doGet(this, ricmletResp);
+        // =======================================================
     }
 
 

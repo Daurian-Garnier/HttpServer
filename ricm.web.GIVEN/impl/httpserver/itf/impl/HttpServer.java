@@ -5,10 +5,7 @@ import java.io.File;
 import java.io.IOException;
 import java.io.PrintStream;
 import java.lang.reflect.InvocationTargetException;
-import java.net.MalformedURLException;
-import java.net.ServerSocket;
-import java.net.Socket;
-import java.util.LinkedList;
+import java.net.*;
 import java.util.StringTokenizer;
 
 import httpserver.itf.HttpRequest;
