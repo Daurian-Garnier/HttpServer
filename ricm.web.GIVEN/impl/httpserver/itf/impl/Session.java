@@ -11,7 +11,6 @@ public class Session implements HttpSession {
 
     public Session() {
         my_id = UUID.randomUUID().toString(); //UUID Unique et safe thread
-        System.out.println("New session created: " + my_id); // ← log temporaire
     }
 
     @Override
