@@ -1,17 +1,17 @@
 package httpserver.itf.impl;
 
 import httpserver.itf.HttpSession;
-
-import java.util.HashMap;
+import java.util.UUID;
+import java.util.concurrent.ConcurrentHashMap;
 
 public class Session implements HttpSession {
-
-    private final HashMap<String, Object> data = new HashMap<>();
+    // ConcurrentHashMap because setValue/getValue can be called by many threads
+    private final ConcurrentHashMap<String, Object> data = new ConcurrentHashMap<>();
     private final String my_id;
-    static int id = 0;
 
-    public Session(){
-        my_id = String.valueOf(id++);
+    public Session() {
+        my_id = UUID.randomUUID().toString(); //UUID Unique et safe thread
+        System.out.println("New session created: " + my_id); // ← log temporaire
     }
 
     @Override
@@ -21,7 +21,7 @@ public class Session implements HttpSession {
 
     @Override
     public Object getValue(String key) {
-        return data.getOrDefault(key, null);
+        return data.get(key);
     }
 
     @Override

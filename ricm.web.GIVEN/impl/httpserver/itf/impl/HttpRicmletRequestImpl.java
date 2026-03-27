@@ -5,59 +5,80 @@ import httpserver.itf.*;
 import java.io.BufferedReader;
 import java.io.IOException;
 import java.util.HashMap;
+import java.util.concurrent.ConcurrentHashMap;
 
 public class HttpRicmletRequestImpl extends HttpRicmletRequest {
 
-    private static final Long SESSION_LIFETIME = 5000L;
-    // keep the already launched ricmlets
-    static HashMap<String, HttpRicmlet> ricmlets = new HashMap<>();
-    static HashMap<String, HttpSession> sessions = new HashMap<>();
-    static HashMap<String, Long> lastSessionCalls = new HashMap<>();
-    final HashMap<String, String> arguments = new HashMap<>();
+    private static final long SESSION_LIFETIME = 5000L;
+
+    // Shared between all threads → ConcurrentHashMap
+    static final ConcurrentHashMap<String, HttpRicmlet> ricmlets = new ConcurrentHashMap<>();
+    static final ConcurrentHashMap<String, HttpSession> sessions = new ConcurrentHashMap<>();
+    static final ConcurrentHashMap<String, Long> lastSessionCalls = new ConcurrentHashMap<>();
+
+    // Specific to each request → instance, not static
+    private final HashMap<String, String> arguments = new HashMap<>();
     private final HashMap<String, String> cookies = new HashMap<>();
     private HttpSession my_session;
 
-    public HttpRicmletRequestImpl(HttpServer hs, String method, String resourceName, BufferedReader br) throws IOException {
+    public HttpRicmletRequestImpl(HttpServer hs, String method,
+                                  String resourceName, BufferedReader br) throws IOException {
         super(hs, method, resourceName, br);
-        //parsing arguments
+        parseArguments();   // 1. extract the URL arguments
+        parseHeaders(br);   // 2. read the headers (including Cookie)
+        initSession();     // 3. resolve or create the session
+    }
+
+    // --- Parsing des arguments dans l'URL (?key=val&...) ---
+    private void parseArguments() {
+        if (m_resourceName.contains("?")) {
+            int sep = m_resourceName.indexOf("?");
+            String query = m_resourceName.substring(sep + 1);
+            for (String arg : query.split("&")) {
+                String[] kv = arg.split("=", 2);
+                if (kv.length == 2) arguments.put(kv[0], kv[1]);
+            }
+            m_resourceName = m_resourceName.substring(0, sep); // nettoyer l'URL
+        }
+    }
+
+    // --- Reading HTTP headers ---
+    private void parseHeaders(BufferedReader br) throws IOException {
         String line;
         while ((line = br.readLine()) != null && !line.isEmpty()) {
             if (line.startsWith("Cookie:")) {
-                readCookie(line);
+                parseCookieLine(line);
+            }
+        }
+    }
+
+    // --- Parsing Cookie line: key=val;key2=val2 ---
+    private void parseCookieLine(String line) {
+        String cookieStr = line.substring("Cookie: ".length());
+        for (String pair : cookieStr.split(";")) {
+            String[] kv = pair.trim().split("=", 2);
+            if (kv.length == 2) {
+                cookies.put(kv[0].trim(), kv[1].trim());
+            }
+        }
+    }
+
+    // --- Resolution or creation of the  session ---
+    private void initSession() {
+        String sessionID = cookies.get("SessionID");
+        if (sessionID != null && sessions.containsKey(sessionID)) {
+            long lastCall = lastSessionCalls.getOrDefault(sessionID, 0L);
+            if (System.currentTimeMillis() - lastCall < SESSION_LIFETIME) {
+                my_session = sessions.get(sessionID); // session existante valide
             }
         }
         if (my_session == null) {
+            // New session
             HttpSession newSession = new Session();
             sessions.put(newSession.getId(), newSession);
             my_session = newSession;
         }
         lastSessionCalls.put(my_session.getId(), System.currentTimeMillis());
-    }
-
-    void readCookie(String line) {
-        //System.out.println(line);
-        String cookieStr = line.substring("Cookie: ".length());
-
-        String[] pairs = cookieStr.split(";");
-
-        for (String pair : pairs) {
-            String[] kv = pair.trim().split("=", 2);
-            if (kv.length == 2) {
-                // handling session
-                if (kv[0].equals("SessionID")) {
-                    String sessionID = kv[1];
-                    Long last = lastSessionCalls.get(sessionID);
-
-                    if (last != null &&
-                            sessions.containsKey(sessionID) &&
-                            System.currentTimeMillis() - last < SESSION_LIFETIME) {
-
-                        my_session = sessions.get(sessionID);
-                    }
-                }
-                cookies.put(kv[0], kv[1]);
-            }
-        }
     }
 
     @Override
@@ -67,47 +88,35 @@ public class HttpRicmletRequestImpl extends HttpRicmletRequest {
 
     @Override
     public String getArg(String name) {
-        return arguments.getOrDefault(name, null);
+        return arguments.get(name);
     }
 
     @Override
     public String getCookie(String name) {
-        return cookies.getOrDefault(name, null);
+        return cookies.get(name);
     }
 
     @Override
     public void process(HttpResponse resp) throws Exception {
         HttpRicmletResponse ricmletResp = (HttpRicmletResponse) resp;
-        //separate classPart and arguments
-        String classPart = m_resourceName;
-        if (m_resourceName.contains("?")) {
-            int separation = m_resourceName.indexOf("?");
-            classPart = m_resourceName.substring(0, separation);
-            String query = m_resourceName.substring(separation + 1);
-            String[] argsTable = query.split("&");
 
-            for (String arg : argsTable) {
-                String[] kv = arg.split("=");
-                if (kv.length == 2) {
-                    arguments.put(kv[0], kv[1]);
-                }
-            }
-        }
-        String className = classPart
+        // Class name resolution from the URL
+        String className = m_resourceName
                 .replaceFirst("/ricmlets/", "")
                 .replace("/", ".");
-        HttpRicmlet ricmlet;
-        if (ricmlets.containsKey(className)) {
-            ricmlet = ricmlets.get(className);
-        } else {
-            Class<?> c = Class.forName(className);
-            ricmlet = (HttpRicmlet) c.getDeclaredConstructor().newInstance();
-            ricmlets.put(className, ricmlet);
-        }
-        // the ricmlet will now recover its args and directly send the answer to the HttpRicmletResponse
+
+        // Thread‑safe singleton instantiation
+        HttpRicmlet ricmlet = ricmlets.computeIfAbsent(className, name -> {
+            try {
+                Class<?> c = Class.forName(name);
+                return (HttpRicmlet) c.getDeclaredConstructor().newInstance();
+            } catch (Exception e) {
+                throw new RuntimeException("Ricmlet not found: " + name, e);
+            }
+        });
+
+        // Session cookie added before setReplyOk()
         ricmletResp.setCookie("SessionID", my_session.getId());
         ricmlet.doGet(this, ricmletResp);
     }
-
-
 }
